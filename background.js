@@ -231,65 +231,161 @@ async function handleWebSearch(query) {
 function getBestUrlForQuery(query) {
   const lowerQuery = query.toLowerCase();
   
-  // Cricket related queries
-  if (lowerQuery.includes('cricket') || lowerQuery.includes('match') || lowerQuery.includes('ipl')) {
+  console.log('Finding URL for query:', query);
+  
+  // Remove common prefixes
+  const cleanQuery = query.replace(/search for|find|look up|google|search|open|show me|tell me about/gi, '').trim();
+  
+  // 1. CRICKET - High specificity
+  if (lowerQuery.includes('cricket') || lowerQuery.includes('ipl') || 
+      (lowerQuery.includes('match') && lowerQuery.includes('india'))) {
     if (lowerQuery.includes('live') || lowerQuery.includes('score') || lowerQuery.includes('today')) {
+      console.log('Opening cricket live scores');
       return 'https://www.espncricinfo.com/live-cricket-score';
     }
+    console.log('Opening cricket homepage');
     return 'https://www.espncricinfo.com/';
   }
   
-  // AI and technology queries
-  else if (lowerQuery.includes('ai') || lowerQuery.includes('artificial intelligence')) {
+  // 2. AI & TECHNOLOGY
+  if (lowerQuery.includes('ai ') || lowerQuery.includes('artificial intelligence')) {
     if (lowerQuery.includes('news') || lowerQuery.includes('latest')) {
+      console.log('Opening AI news');
       return 'https://techcrunch.com/category/artificial-intelligence/';
     }
+    console.log('Opening AI Wikipedia');
     return 'https://en.wikipedia.org/wiki/Artificial_intelligence';
   }
   
-  // Technology news
-  else if (lowerQuery.includes('technology') || lowerQuery.includes('tech news')) {
+  if (lowerQuery.includes('technology') || lowerQuery.includes('tech news') || 
+      lowerQuery.includes('tech updates')) {
+    console.log('Opening technology news');
     return 'https://techcrunch.com/';
   }
   
-  // General news queries
-  else if (lowerQuery.includes('news')) {
+  // 3. NEWS
+  if (lowerQuery.includes('news')) {
     if (lowerQuery.includes('india')) {
+      console.log('Opening India news');
       return 'https://www.bbc.com/news/world/asia/india';
     }
+    if (lowerQuery.includes('world') || lowerQuery.includes('international')) {
+      console.log('Opening world news');
+      return 'https://www.bbc.com/news/world';
+    }
+    console.log('Opening general news');
     return 'https://www.bbc.com/news';
   }
   
-  // Weather queries
-  else if (lowerQuery.includes('weather')) {
+  // 4. WEATHER
+  if (lowerQuery.includes('weather') || lowerQuery.includes('temperature') || 
+      lowerQuery.includes('forecast')) {
     const city = extractCity(lowerQuery);
     if (city) {
+      console.log('Opening weather for city:', city);
       return `https://www.weather.com/weather/today/l/${city}`;
     }
+    console.log('Opening weather homepage');
     return 'https://www.weather.com/';
   }
   
-  // Stock/finance queries
-  else if (lowerQuery.includes('stock') || lowerQuery.includes('share price')) {
+  // 5. STOCK & FINANCE
+  if (lowerQuery.includes('stock') || lowerQuery.includes('share') || 
+      lowerQuery.includes('market') || lowerQuery.includes('finance')) {
+    console.log('Opening finance/stock site');
     return 'https://finance.yahoo.com/';
   }
   
-  // YouTube queries
-  else if (lowerQuery.includes('video') || lowerQuery.includes('youtube')) {
-    const searchTerm = query.replace(/video|youtube/gi, '').trim();
-    return `https://www.youtube.com/results?search_query=${encodeURIComponent(searchTerm)}`;
+  // 6. YOUTUBE & VIDEO
+  if (lowerQuery.includes('video') || lowerQuery.includes('youtube') || 
+      lowerQuery.includes('watch')) {
+    const searchTerm = cleanQuery.replace(/video|youtube|watch/gi, '').trim();
+    if (searchTerm) {
+      console.log('Opening YouTube search for:', searchTerm);
+      return `https://www.youtube.com/results?search_query=${encodeURIComponent(searchTerm)}`;
+    }
+    console.log('Opening YouTube homepage');
+    return 'https://www.youtube.com/';
   }
   
-  // Wikipedia for knowledge queries
-  else if (lowerQuery.includes('what is') || lowerQuery.includes('who is') || lowerQuery.includes('define')) {
-    const searchTerm = query.replace(/what is|who is|define/gi, '').trim();
-    return `https://en.wikipedia.org/wiki/${encodeURIComponent(searchTerm.replace(/\s+/g, '_'))}`;
+  // 7. SOCIAL MEDIA
+  if (lowerQuery.includes('twitter') || lowerQuery.includes('tweet')) {
+    console.log('Opening Twitter');
+    return 'https://twitter.com/';
+  }
+  if (lowerQuery.includes('facebook')) {
+    console.log('Opening Facebook');
+    return 'https://www.facebook.com/';
+  }
+  if (lowerQuery.includes('instagram')) {
+    console.log('Opening Instagram');
+    return 'https://www.instagram.com/';
   }
   
-  // Default: Google search
-  else {
-    return `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+  // 8. SHOPPING
+  if (lowerQuery.includes('amazon') || (lowerQuery.includes('buy') && lowerQuery.includes('online'))) {
+    console.log('Opening Amazon');
+    return 'https://www.amazon.in/';
   }
+  if (lowerQuery.includes('flipkart')) {
+    console.log('Opening Flipkart');
+    return 'https://www.flipkart.com/';
+  }
+  
+  // 9. KNOWLEDGE QUERIES (Wikipedia)
+  if (lowerQuery.includes('what is') || lowerQuery.includes('who is') || 
+      lowerQuery.includes('define') || lowerQuery.includes('meaning of')) {
+    const searchTerm = cleanQuery.replace(/what is|who is|define|meaning of/gi, '').trim();
+    if (searchTerm) {
+      console.log('Opening Wikipedia for:', searchTerm);
+      return `https://en.wikipedia.org/wiki/${encodeURIComponent(searchTerm.replace(/\s+/g, '_'))}`;
+    }
+  }
+  
+  // 10. LEARNING & EDUCATION
+  if (lowerQuery.includes('how to') || lowerQuery.includes('tutorial') || 
+      lowerQuery.includes('learn')) {
+    const searchTerm = cleanQuery;
+    if (searchTerm) {
+      console.log('Opening YouTube tutorial for:', searchTerm);
+      return `https://www.youtube.com/results?search_query=${encodeURIComponent(searchTerm + ' tutorial')}`;
+    }
+  }
+  
+  // 11. SPORTS (non-cricket)
+  if (lowerQuery.includes('football') || lowerQuery.includes('soccer') || 
+      lowerQuery.includes('premier league')) {
+    console.log('Opening football/soccer site');
+    return 'https://www.espn.com/soccer/';
+  }
+  
+  // 12. ENTERTAINMENT
+  if (lowerQuery.includes('movie') || lowerQuery.includes('film') || 
+      lowerQuery.includes('imdb')) {
+    const movieName = cleanQuery.replace(/movie|film|imdb/gi, '').trim();
+    if (movieName) {
+      console.log('Opening IMDB search for:', movieName);
+      return `https://www.imdb.com/find?q=${encodeURIComponent(movieName)}`;
+    }
+    console.log('Opening IMDB homepage');
+    return 'https://www.imdb.com/';
+  }
+  
+  // 13. RECIPES & FOOD
+  if (lowerQuery.includes('recipe') || lowerQuery.includes('cook') || 
+      lowerQuery.includes('food')) {
+    const dish = cleanQuery.replace(/recipe|cook|food|how to make/gi, '').trim();
+    if (dish) {
+      console.log('Opening recipe search for:', dish);
+      return `https://www.allrecipes.com/search?q=${encodeURIComponent(dish)}`;
+    }
+    console.log('Opening recipes homepage');
+    return 'https://www.allrecipes.com/';
+  }
+  
+  // DEFAULT: Google Search for everything else
+  console.log('Using Google search for:', cleanQuery || query);
+  return `https://www.google.com/search?q=${encodeURIComponent(cleanQuery || query)}`;
 }
 
 // Extract city name from query
