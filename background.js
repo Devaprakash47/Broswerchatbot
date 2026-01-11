@@ -163,7 +163,7 @@ function identifyWebsiteType(url, title) {
   }
 }
 
-// Handle web search by opening relevant website
+// Handle web search by opening relevant website in CURRENT TAB
 async function handleWebSearch(query) {
   try {
     console.log('Performing web search for:', query);
@@ -171,16 +171,28 @@ async function handleWebSearch(query) {
     // Get the best matching URL for the query
     const targetUrl = getBestUrlForQuery(query);
     
-    // Open the website in current tab
+    // IMPORTANT: Open in the CURRENT tab (the one with sidebar)
+    // This ensures the chatbot stays connected to the opened website
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    
     if (tabs[0]) {
-      await chrome.tabs.update(tabs[0].id, { url: targetUrl });
+      // Update CURRENT tab with new URL
+      await chrome.tabs.update(tabs[0].id, { 
+        url: targetUrl,
+        active: true // Keep this tab active
+      });
+      
+      console.log('Opened URL in current tab:', targetUrl);
     } else {
-      await chrome.tabs.create({ url: targetUrl, active: true });
+      // Fallback: create new tab if no active tab found
+      await chrome.tabs.create({ 
+        url: targetUrl, 
+        active: true 
+      });
     }
     
     // Wait for page to load
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    await new Promise(resolve => setTimeout(resolve, 4000));
     
     // Get information about the opened website
     const tabInfo = await getCurrentTabInfo();
@@ -199,7 +211,10 @@ async function handleWebSearch(query) {
       return {
         success: true,
         url: targetUrl,
-        message: 'Website opened but content extraction failed'
+        domain: new URL(targetUrl).hostname,
+        title: 'Website Opened',
+        websiteType: 'Website',
+        message: 'Website opened successfully. Click "Analyze Page" to extract content.'
       };
     }
     

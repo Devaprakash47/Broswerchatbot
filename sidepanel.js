@@ -31,6 +31,12 @@ function init() {
   // Initialize voice recognition
   initVoiceRecognition();
   
+  // Show voice prompt to user on startup
+  setTimeout(() => {
+    const welcomeMsg = '🎤 Voice assistant is ready! Click the microphone button or type your question.';
+    addMessage(welcomeMsg, 'bot');
+  }, 1000);
+  
   // Event listeners
   sendBtn.addEventListener('click', handleSendMessage);
   voiceBtn.addEventListener('click', toggleVoiceInput);
@@ -101,84 +107,124 @@ function initVoiceRecognition() {
     recognition.lang = 'en-US';
     
     recognition.onstart = () => {
+      console.log('Voice recognition started');
       isListening = true;
       voiceBtn.classList.add('listening');
-      addMessage('🎤 Listening...', 'bot');
+      
+      // Show visual feedback
+      const listeningMsg = document.createElement('div');
+      listeningMsg.id = 'listeningIndicator';
+      listeningMsg.className = 'message bot-message';
+      listeningMsg.innerHTML = '<div class="message-content">🎤 <strong>Listening...</strong> (Speak now)</div>';
+      chatMessages.appendChild(listeningMsg);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
     };
     
     recognition.onresult = (event) => {
+      console.log('Voice recognition result received');
       const transcript = event.results[0][0].transcript;
+      console.log('Transcript:', transcript);
+      
+      // Remove listening indicator
+      const indicator = document.getElementById('listeningIndicator');
+      if (indicator) indicator.remove();
+      
+      // Set the input value
       userInput.value = transcript;
+      
+      // Show what user said
       addMessage(`You said: "${transcript}"`, 'user');
-      handleSendMessage();
+      
+      // Process the message
+      setTimeout(() => {
+        handleSendMessage();
+      }, 500);
     };
     
     recognition.onerror = (event) => {
       console.error('Speech recognition error:', event.error);
       isListening = false;
       voiceBtn.classList.remove('listening');
-      if (event.error !== 'no-speech') {
+      
+      // Remove listening indicator
+      const indicator = document.getElementById('listeningIndicator');
+      if (indicator) indicator.remove();
+      
+      if (event.error === 'no-speech') {
+        addMessage('No speech detected. Please try again and speak clearly.', 'bot');
+      } else if (event.error === 'not-allowed') {
+        addMessage('⚠️ Microphone access denied. Please allow microphone permission in browser settings.', 'bot');
+      } else {
         addMessage(`Voice error: ${event.error}. Please try again.`, 'bot');
       }
     };
     
     recognition.onend = () => {
+      console.log('Voice recognition ended');
       isListening = false;
       voiceBtn.classList.remove('listening');
+      
+      // Remove listening indicator if still there
+      const indicator = document.getElementById('listeningIndicator');
+      if (indicator) indicator.remove();
     };
+    
+    console.log('Voice recognition initialized successfully');
   } else {
-    console.warn('Speech recognition not supported');
-    voiceBtn.style.display = 'none';
+    console.warn('Speech recognition not supported in this browser');
+    voiceBtn.style.opacity = '0.5';
+    voiceBtn.style.cursor = 'not-allowed';
+    voiceBtn.title = 'Voice not supported in this browser';
   }
 }
 
 // Toggle voice input
 function toggleVoiceInput() {
-  chrome.storage.local.get('settings', (result) => {
-    const voiceEnabled = result.settings?.voiceEnabled !== false;
-    
-    if (!voiceEnabled) {
-      addMessage('Voice assistant is disabled. Enable it in settings.', 'bot');
-      return;
-    }
-    
-    if (!recognition) {
-      addMessage('Voice recognition is not supported in your browser.', 'bot');
-      return;
-    }
-    
-    if (isListening) {
-      recognition.stop();
-    } else {
+  console.log('Microphone button clicked');
+  
+  // Check if recognition is available
+  if (!recognition) {
+    const errorMsg = '⚠️ Voice recognition is not supported in your browser. Please use Chrome, Edge, or Safari.';
+    addMessage(errorMsg, 'bot');
+    alert(errorMsg);
+    return;
+  }
+  
+  if (isListening) {
+    console.log('Stopping voice recognition');
+    recognition.stop();
+  } else {
+    console.log('Starting voice recognition');
+    try {
       recognition.start();
+    } catch (error) {
+      console.error('Error starting recognition:', error);
+      addMessage('Error starting voice recognition. Please try again.', 'bot');
     }
-  });
+  }
 }
 
 // Text-to-speech for responses
 function speakText(text) {
-  chrome.storage.local.get('settings', (result) => {
-    const voiceEnabled = result.settings?.voiceEnabled !== false;
-    
-    if (!voiceEnabled || !speechSynthesis) return;
-    
-    // Cancel any ongoing speech
-    speechSynthesis.cancel();
-    
-    // Clean text for speech
-    const cleanText = text
-      .replace(/\*\*/g, '')
-      .replace(/\*/g, '')
-      .replace(/\n/g, '. ')
-      .replace(/📄|📝|🎤|💡|🔍|✓|🌐|⏳/g, '');
-    
-    const utterance = new SpeechSynthesisUtterance(cleanText);
-    utterance.rate = 0.9;
-    utterance.pitch = 1;
-    utterance.volume = 1;
-    
-    speechSynthesis.speak(utterance);
-  });
+  // Voice is always enabled by default
+  if (!speechSynthesis) return;
+  
+  // Cancel any ongoing speech
+  speechSynthesis.cancel();
+  
+  // Clean text for speech
+  const cleanText = text
+    .replace(/\*\*/g, '')
+    .replace(/\*/g, '')
+    .replace(/\n/g, '. ')
+    .replace(/📄|📝|🎤|💡|🔍|✓|🌐|⏳|✅|📊|🔗|📋|💬/g, '');
+  
+  const utterance = new SpeechSynthesisUtterance(cleanText);
+  utterance.rate = 0.9;
+  utterance.pitch = 1;
+  utterance.volume = 1;
+  
+  speechSynthesis.speak(utterance);
 }
 
 // Check if content script is ready
@@ -456,15 +502,64 @@ async function processUserMessage(message) {
 
 // Detect if message is a search query
 function detectSearchQuery(message) {
-  const searchKeywords = [
+  const lowerMessage = message.toLowerCase();
+  
+  // Direct search keywords - HIGH PRIORITY
+  const directSearchKeywords = [
     'search for', 'find', 'look up', 'google', 'search',
-    'what is', 'who is', 'when is', 'where is', 'how to',
-    'latest', 'today', 'news', 'current', 'result', 'score',
-    'weather', 'time', 'price', 'stock', 'match'
+    'open', 'go to', 'show me', 'take me to'
   ];
   
-  const lowerMessage = message.toLowerCase();
-  return searchKeywords.some(keyword => lowerMessage.includes(keyword));
+  if (directSearchKeywords.some(keyword => lowerMessage.includes(keyword))) {
+    return true;
+  }
+  
+  // Content type queries - MEDIUM PRIORITY
+  const contentKeywords = [
+    'cricket', 'match', 'ipl', 'score',
+    'news', 'latest', 'today', 'current',
+    'weather', 'temperature', 'forecast',
+    'stock', 'price', 'share',
+    'video', 'youtube', 'watch',
+    'ai', 'artificial intelligence', 'technology', 'tech'
+  ];
+  
+  if (contentKeywords.some(keyword => lowerMessage.includes(keyword))) {
+    return true;
+  }
+  
+  // Question queries - LOW PRIORITY
+  const questionKeywords = [
+    'what is', 'who is', 'when is', 'where is', 'how to',
+    'why is', 'which is', 'tell me about', 'explain'
+  ];
+  
+  if (questionKeywords.some(keyword => lowerMessage.includes(keyword))) {
+    // Only treat as search if it's asking about something external
+    // Not about current page
+    if (!lowerMessage.includes('this page') && 
+        !lowerMessage.includes('this article') &&
+        !lowerMessage.includes('here') &&
+        !lowerMessage.includes('above')) {
+      return true;
+    }
+  }
+  
+  // If message is longer than 3 words and doesn't seem like a page analysis request
+  const words = message.trim().split(/\s+/);
+  if (words.length >= 3) {
+    const pageAnalysisKeywords = ['analyze', 'summarize', 'summary', 'explain this'];
+    const isPageAnalysis = pageAnalysisKeywords.some(keyword => 
+      lowerMessage.includes(keyword)
+    );
+    
+    if (!isPageAnalysis) {
+      // Likely a search query
+      return true;
+    }
+  }
+  
+  return false;
 }
 
 // Perform web search by opening relevant website
@@ -474,8 +569,9 @@ async function performWebSearch(query) {
       .replace(/search for|find|look up|google|search/gi, '')
       .trim();
     
-    addMessage(`🔍 Searching for: "${searchQuery}"`, 'bot');
-    addMessage(`🌐 Opening relevant website...`, 'bot');
+    addMessage(`🎤 Voice Command Received: "${searchQuery}"`, 'user');
+    addMessage(`🔍 Searching and opening relevant website...`, 'bot');
+    speakText('Opening the website for you');
     
     // Send to background script to open website and get info
     chrome.runtime.sendMessage({
@@ -485,45 +581,56 @@ async function performWebSearch(query) {
       if (response && response.success) {
         displayWebsiteInfo(response, searchQuery);
       } else {
-        addMessage('Sorry, I encountered an error while opening the website. Please try again.', 'bot');
+        const errorMsg = 'Sorry, I encountered an error while opening the website. Please try again or check your internet connection.';
+        addMessage(errorMsg, 'bot');
+        speakText(errorMsg);
       }
     });
     
   } catch (error) {
     console.error('Search error:', error);
-    addMessage('Sorry, I encountered an error performing the search.', 'bot');
+    const errorMsg = 'Sorry, I encountered an error performing the search.';
+    addMessage(errorMsg, 'bot');
+    speakText(errorMsg);
   }
 }
 
 // Display information about the opened website
 function displayWebsiteInfo(info, query) {
-  let response = `✅ **I opened a website for you!**\n\n`;
+  let response = `✅ **Website Opened Successfully!**\n\n`;
   
   response += `🌐 **Website:** ${info.domain}\n`;
   response += `📄 **Page Title:** ${info.title}\n`;
   response += `🔗 **URL:** ${info.url}\n`;
-  response += `📋 **Type:** ${info.websiteType}\n\n`;
+  response += `📋 **Website Type:** ${info.websiteType}\n\n`;
   
   response += `**What is this website?**\n`;
   response += `${getWebsiteDescription(info.websiteType, info.domain)}\n\n`;
   
   if (info.content) {
-    response += `**About the current page:**\n`;
+    response += `**Current Page Content:**\n`;
     response += `${info.snippet}\n\n`;
     
-    response += `**Content Summary:**\n`;
-    response += `This page discusses: ${info.content.slice(0, 400)}...\n\n`;
+    response += `**Detailed Summary:**\n`;
+    response += `${info.content.slice(0, 400)}...\n\n`;
   }
   
-  response += `💡 **You can now:**\n`;
-  response += `• Read the full content on the website\n`;
-  response += `• Ask me to "analyze this page" for detailed breakdown\n`;
-  response += `• Ask me specific questions about the content\n`;
-  response += `• Use "summarize" to get a quick summary`;
+  response += `🎤 **Voice Commands You Can Try:**\n`;
+  response += `• "Summarize this page"\n`;
+  response += `• "Explain the main points"\n`;
+  response += `• "Analyze this content"\n`;
+  response += `• "What are the key findings"\n\n`;
+  
+  response += `💡 **Or you can:**\n`;
+  response += `• Browse the website yourself\n`;
+  response += `• Click "Analyze Page" button\n`;
+  response += `• Ask me any questions\n`;
+  response += `• Select text and ask me about it`;
   
   addMessage(response, 'bot');
   
-  const speechText = `I opened ${info.domain}, which is a ${info.websiteType}. ${info.snippet.slice(0, 100)}`;
+  // Speak a concise summary
+  const speechText = `I opened ${info.domain}, which is ${info.websiteType.toLowerCase()}. ${info.snippet ? info.snippet.slice(0, 150) : 'The website has loaded successfully.'}`;
   speakText(speechText);
 }
 
@@ -653,9 +760,12 @@ function loadSettings() {
       theme: 'light',
       fontSize: 'medium',
       autoAnalyze: false,
-      voiceEnabled: true,
+      voiceEnabled: true, // Always true by default
       autoSearch: true
     };
+    
+    // Force voice to be enabled
+    settings.voiceEnabled = true;
     
     setTheme(settings.theme);
     setFontSize(settings.fontSize);
@@ -663,7 +773,8 @@ function loadSettings() {
     document.getElementById('themeSelect').value = settings.theme;
     document.getElementById('fontSizeSelect').value = settings.fontSize;
     document.getElementById('autoAnalyze').checked = settings.autoAnalyze;
-    document.getElementById('voiceEnabled').checked = settings.voiceEnabled !== false;
+    document.getElementById('voiceEnabled').checked = true; // Always checked
+    document.getElementById('voiceEnabled').disabled = false; // User can still toggle if needed
     document.getElementById('autoSearch').checked = settings.autoSearch !== false;
   });
 }

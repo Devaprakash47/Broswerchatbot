@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Search Results - Semantic Assistant</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .header {
+      background: white;
+      border-radius: 16px;
+      padding: 30px;
+      margin-bottom: 20px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    }
+
+    .header h1 {
+      color: #333;
+      font-size: 28px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .header .query {
+      color: #667eea;
+      font-size: 20px;
+      font-weight: 500;
+      margin-top: 10px;
+    }
+
+    .loading {
+      background: white;
+      border-radius: 16px;
+      padding: 40px;
+      text-align: center;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    }
+
+    .loading-spinner {
+      width: 50px;
+      height: 50px;
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #667eea;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 20px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .loading-text {
+      color: #666;
+      font-size: 18px;
+    }
+
+    .results-container {
+      display: none;
+    }
+
+    .results-container.show {
+      display: block;
+    }
+
+    .summary-card {
+      background: white;
+      border-radius: 16px;
+      padding: 30px;
+      margin-bottom: 20px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    }
+
+    .summary-card h2 {
+      color: #333;
+      font-size: 24px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .summary-card .summary-text {
+      color: #555;
+      line-height: 1.8;
+      font-size: 16px;
+      margin-bottom: 15px;
+    }
+
+    .result-card {
+      background: white;
+      border-radius: 16px;
+      padding: 25px;
+      margin-bottom: 20px;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+      transition: all 0.3s ease;
+      cursor: pointer;
+      border-left: 4px solid #667eea;
+    }
+
+    .result-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    }
+
+    .result-title {
+      font-size: 20px;
+      font-weight: 600;
+      color: #667eea;
+      margin-bottom: 10px;
+      text-decoration: none;
+      display: block;
+    }
+
+    .result-title:hover {
+      text-decoration: underline;
+    }
+
+    .result-url {
+      font-size: 13px;
+      color: #28a745;
+      margin-bottom: 12px;
+      word-break: break-all;
+    }
+
+    .result-snippet {
+      color: #555;
+      line-height: 1.6;
+      font-size: 15px;
+      margin-bottom: 15px;
+    }
+
+    .result-meta {
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+      font-size: 13px;
+      color: #999;
+    }
+
+    .result-meta span {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .content-preview {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 20px;
+      margin-top: 15px;
+      max-height: 300px;
+      overflow-y: auto;
+      display: none;
+    }
+
+    .content-preview.show {
+      display: block;
+    }
+
+    .content-preview h3 {
+      color: #333;
+      margin-bottom: 15px;
+      font-size: 18px;
+    }
+
+    .content-preview p {
+      color: #555;
+      line-height: 1.7;
+      margin-bottom: 12px;
+    }
+
+    .error-card {
+      background: white;
+      border-radius: 16px;
+      padding: 40px;
+      text-align: center;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    }
+
+    .error-icon {
+      font-size: 60px;
+      margin-bottom: 20px;
+    }
+
+    .error-text {
+      color: #666;
+      font-size: 18px;
+      margin-bottom: 20px;
+    }
+
+    .retry-btn {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 12px 30px;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .retry-btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    .view-full-btn {
+      background: #667eea;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      margin-top: 10px;
+    }
+
+    .view-full-btn:hover {
+      background: #5568d3;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .tab {
+      background: white;
+      border: 2px solid transparent;
+      padding: 12px 24px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      color: #666;
+    }
+
+    .tab.active {
+      background: white;
+      border-color: #667eea;
+      color: #667eea;
+      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.2);
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#667eea" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/>
+          <path d="m21 21-4.35-4.35"/>
+        </svg>
+        Semantic Web Assistant
+      </h1>
+      <div class="query" id="queryText">Searching...</div>
+    </div>
+
+    <div class="loading" id="loadingSection">
+      <div class="loading-spinner"></div>
+      <div class="loading-text">Finding the best results for you...</div>
+    </div>
+
+    <div class="results-container" id="resultsContainer">
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab('summary')">📝 Summary</div>
+        <div class="tab" onclick="switchTab('results')">🔍 Web Results</div>
+        <div class="tab" onclick="switchTab('content')">📄 Full Content</div>
+      </div>
+
+      <div class="tab-content active" id="summaryTab">
+        <div class="summary-card">
+          <h2>
+            <span>📊</span>
+            Quick Summary
+          </h2>
+          <div class="summary-text" id="summaryText"></div>
+        </div>
+      </div>
+
+      <div class="tab-content" id="resultsTab">
+        <div id="searchResults"></div>
+      </div>
+
+      <div class="tab-content" id="contentTab">
+        <div id="fullContent"></div>
+      </div>
+    </div>
+
+    <div class="error-card" id="errorSection" style="display: none;">
+      <div class="error-icon">⚠️</div>
+      <div class="error-text" id="errorText"></div>
+      <button class="retry-btn" onclick="location.reload()">Try Again</button>
+    </div>
+  </div>
+
+  <script src="search-results.js"></script>
+</body>
+</html>
